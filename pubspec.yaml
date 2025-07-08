@@ -1,0 +1,20 @@
+name: local_query_filter
+description: A robust, type-safe package for client-side filtering, searching, and sorting of collections in Flutter. Offloads heavy work to a background isolate.
+version: 0.1.0
+homepage: https://github.com/shifastudios/local_query_filter
+
+environment:
+  sdk: ^3.8.1
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  dart_date: ^1.5.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0
