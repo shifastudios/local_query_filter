@@ -1,8 +1,8 @@
 # Local Query Filter
 
-A robust, **type-safe**, **extensible** filtering engine for Flutter. Designed for **client-side**
-querying of in-memory collections with **search**, **sorting**, and **pagination**, all while
-maintaining **UI performance** via isolate-based execution.
+A **high-performance**, **type-safe**, and **extensible** filtering engine for Flutter. Designed for
+**client-side** querying of in-memory collections with **search**, **sorting**, and **pagination**,
+all executed in a background isolate for **jank-free UI**.
 
 ---
 
@@ -24,7 +24,7 @@ Add the dependency to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  local_query_filter: ^0.1.0 # Use the latest version
+  local_query_filter: ^0.2.0 # Use the latest version
 ```
 
 Then run:
@@ -67,7 +67,15 @@ class Product {
 
 ```dart
 
+final now = DateTime.now();
+
 final productFilter = QueryFilter<Product>(
+  limit: 10,
+  offset: 0,
+  ascending: true,
+  searchTerm: 'speaker',
+  sortingFieldExtractor: (product) => product.price,
+  searchFieldsExtractor: (product) => [product.name],
   constraints: [
     // Must be active
     BooleanConstraint.isTrue(
@@ -86,18 +94,12 @@ final productFilter = QueryFilter<Product>(
     // Created in the last 30 days
     DateRangeConstraint(
       dateRange: DateTimeRange(
-        start: DateTime.now().subtract(const Duration(days: 30)),
-        end: DateTime.now(),
+        start: now.subtract(const Duration(days: 30)),
+        end: now,
       ),
       fieldExtractor: (product) => product.createdAt,
     ),
   ],
-  searchTerm: 'speaker',
-  searchFieldsExtractor: (product) => [product.name],
-  sortingFieldExtractor: (product) => product.price,
-  ascending: true,
-  limit: 10,
-  offset: 0,
 );
 
 Future<void> runFilter() async {
@@ -135,7 +137,6 @@ All constraints extend this base class. You can mix and match them freely:
 * 🔁 **RangeConstraint** – Check if a value lies within a numeric or comparable range.
 * 📅 **DateRangeConstraint** – Validate `DateTime` fields fall within a given range.
 * 🏷 **ArrayUnionConstraint** – For list fields. Supports:
-
     * `arrayContains`
     * `arrayContainsAny`
     * `whereIn`
@@ -147,13 +148,12 @@ All constraints extend this base class. You can mix and match them freely:
 
 ## 📄 License
 
-MIT — see the [LICENSE](https://github.com/shifastudios/local_query_filter/blob/main/LICENSE).
+MIT — see the [LICENSE](https://github.com/shifastudios/local_query_filter/blob/master/LICENSE).
 
 ---
 
 ## 🤝 Contributing
 
-Found a bug? Want to improve performance or add a feature?
-
-Open an issue or PR at:
-👉 [github.com/shifastudios/local\_query\_filter](https://github.com/shifastudios/local_query_filter)
+Have ideas, feedback, or improvements?  
+Open an [issue](https://github.com/shifastudios/local_query_filter/issues)
+or [pull request](https://github.com/shifastudios/local_query_filter/pulls).
