@@ -1,58 +1,35 @@
 import "package:local_query_filter/src/constraints/query_constraint.dart";
 
-/// Defines the available comparison operators for [Comparable] fields.
+/// Comparison operators supported by [ComparisonConstraint].
 enum ComparisonOperator {
-  /// Matches if the field's value is exactly equal to the specified value.
+  /// Matches when the field value is equal to the provided value.
   equal,
 
-  /// Matches if the field's value is not equal to the specified value.
+  /// Matches when the field value is not equal to the provided value.
   notEqual,
 
-  /// Matches if the field's value is strictly greater than the specified value.
+  /// Matches when the field value is greater than the provided value.
   greaterThan,
 
-  /// Matches if the field's value is greater than or equal to the specified value.
+  /// Matches when the field value is greater than or equal to the provided value.
   greaterThanOrEqual,
 
-  /// Matches if the field's value is strictly less than the specified value.
+  /// Matches when the field value is less than the provided value.
   lessThan,
 
-  /// Matches if the field's value is less than or equal to the specified value.
+  /// Matches when the field value is less than or equal to the provided value.
   lessThanOrEqual,
 }
 
-/// A [QueryConstraint] for filtering items based on standard comparison
-/// operations on [Comparable] fields.
+/// A [QueryConstraint] that compares a model field against a value.
 ///
-/// This constraint is suitable for numeric types (int, double), strings,
-/// DateTimes, and any other custom class that implements the [Comparable] interface.
-///
-/// Example usage:
-/// ```dart
-/// // Find products with a price greater than 50.0
-/// final expensiveProducts = ComparisonConstraint.greaterThan(
-///   value: 50.0,
-///   fieldExtractor: (product) => product.price,
-/// );
-///
-/// // Find users whose age is exactly 30
-/// final usersAge30 = ComparisonConstraint.equal(
-///   value: 30,
-///   fieldExtractor: (user) => user.age,
-/// );
-///
-/// // Find items with a name not equal to "Laptop"
-/// final notLaptop = ComparisonConstraint.notEqual(
-///   value: "Laptop",
-///   fieldExtractor: (item) => item.name,
-/// );
-/// ```
+/// The field type [F] must implement [Comparable]. The comparison behavior
+/// is determined by the selected [ComparisonOperator].
 class ComparisonConstraint<T, F extends Comparable> extends QueryConstraint<T> {
   final F _value;
   final ComparisonOperator _operator;
   final F Function(T model) _fieldExtractor;
 
-  /// Private constructor to enforce creation via factory constructors.
   ComparisonConstraint._({
     required F value,
     required ComparisonOperator operator,
@@ -61,8 +38,8 @@ class ComparisonConstraint<T, F extends Comparable> extends QueryConstraint<T> {
        _operator = operator,
        _fieldExtractor = fieldExtractor;
 
-  /// Creates a [ComparisonConstraint] that matches if the field's value
-  /// is exactly equal to the specified [value].
+  /// Creates a constraint that matches when the field value
+  /// is equal to [value].
   factory ComparisonConstraint.equal({
     required F value,
     required F Function(T model) fieldExtractor,
@@ -72,8 +49,8 @@ class ComparisonConstraint<T, F extends Comparable> extends QueryConstraint<T> {
     fieldExtractor: fieldExtractor,
   );
 
-  /// Creates a [ComparisonConstraint] that matches if the field's value
-  /// is not equal to the specified [value].
+  /// Creates a constraint that matches when the field value
+  /// is not equal to [value].
   factory ComparisonConstraint.notEqual({
     required F value,
     required F Function(T model) fieldExtractor,
@@ -83,8 +60,8 @@ class ComparisonConstraint<T, F extends Comparable> extends QueryConstraint<T> {
     fieldExtractor: fieldExtractor,
   );
 
-  /// Creates a [ComparisonConstraint] that matches if the field's value
-  /// is strictly greater than the specified [value].
+  /// Creates a constraint that matches when the field value
+  /// is greater than [value].
   factory ComparisonConstraint.greaterThan({
     required F value,
     required F Function(T model) fieldExtractor,
@@ -94,8 +71,8 @@ class ComparisonConstraint<T, F extends Comparable> extends QueryConstraint<T> {
     fieldExtractor: fieldExtractor,
   );
 
-  /// Creates a [ComparisonConstraint] that matches if the field's value
-  /// is greater than or equal to the specified [value].
+  /// Creates a constraint that matches when the field value
+  /// is greater than or equal to [value].
   factory ComparisonConstraint.greaterThanOrEqual({
     required F value,
     required F Function(T model) fieldExtractor,
@@ -105,8 +82,8 @@ class ComparisonConstraint<T, F extends Comparable> extends QueryConstraint<T> {
     fieldExtractor: fieldExtractor,
   );
 
-  /// Creates a [ComparisonConstraint] that matches if the field's value
-  /// is strictly less than the specified [value].
+  /// Creates a constraint that matches when the field value
+  /// is less than [value].
   factory ComparisonConstraint.lessThan({
     required F value,
     required F Function(T model) fieldExtractor,
@@ -116,8 +93,8 @@ class ComparisonConstraint<T, F extends Comparable> extends QueryConstraint<T> {
     fieldExtractor: fieldExtractor,
   );
 
-  /// Creates a [ComparisonConstraint] that matches if the field's value
-  /// is less than or equal to the specified [value].
+  /// Creates a constraint that matches when the field value
+  /// is less than or equal to [value].
   factory ComparisonConstraint.lessThanOrEqual({
     required F value,
     required F Function(T model) fieldExtractor,
@@ -127,21 +104,18 @@ class ComparisonConstraint<T, F extends Comparable> extends QueryConstraint<T> {
     fieldExtractor: fieldExtractor,
   );
 
-  /// Checks if the [model] matches the comparison condition defined by this constraint.
+  /// Evaluates the constraint against the given [model].
   ///
-  /// The [fieldValue] extracted from the model is compared against the [_value]
-  /// using the specified [_operator].
+  /// Returns `true` if the extracted field value satisfies
+  /// the configured comparison operator.
   @override
   bool matches(T model) {
     final fieldValue = _fieldExtractor(model);
     switch (_operator) {
       case ComparisonOperator.equal:
-        // Using compareTo for equality is generally robust for Comparable types.
-        // It's equivalent to `fieldValue == _value` for most common Comparable types,
-        // but explicitly uses the Comparable contract.
-        return fieldValue.compareTo(_value) == 0;
+        return fieldValue == _value;
       case ComparisonOperator.notEqual:
-        return fieldValue.compareTo(_value) != 0;
+        return fieldValue != _value;
       case ComparisonOperator.greaterThan:
         return fieldValue.compareTo(_value) > 0;
       case ComparisonOperator.greaterThanOrEqual:

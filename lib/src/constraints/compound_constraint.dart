@@ -1,155 +1,90 @@
 import "package:local_query_filter/src/constraints/query_constraint.dart";
 
-/// Defines the logical operators for combining multiple [QueryConstraint]s.
+/// Logical operators supported by [CompoundConstraint].
 enum CompoundOperator {
-  /// Logical OR: Matches if at least one of the provided constraints matches.
-  or,
-
-  /// Logical NOT: Matches if the single provided constraint DOES NOT match.
-  not,
-
-  /// Logical AND: Matches if ALL of the provided constraints match.
+  /// Matches when all nested constraints match.
   and,
 
-  /// Logical NONE: Matches if NONE of the provided constraints match.
-  /// This is equivalent to NOT (Constraint1 OR Constraint2 OR ...).
-  none,
+  /// Matches when at least one nested constraint matches.
+  or,
+
+  /// Matches when the nested constraint does not match.
+  ///
+  /// This operator requires exactly one nested constraint.
+  not,
 }
 
-/// A [QueryConstraint] that combines multiple other [QueryConstraint]s
-/// using logical AND, OR, NOT, or NONE operators.
+/// A [QueryConstraint] that combines one or more constraints using
+/// logical operators.
 ///
-/// This allows for the construction of complex filtering logic by grouping
-/// simpler constraints.
-///
-/// Example Usage:
-/// ```dart
-/// // Find products that are both active AND in stock.
-/// final activeAndInStock = CompoundConstraint.and(
-///   constraints: [
-///     ComparisonConstraint.equal(value: true, fieldExtractor: (p) => p.isActive),
-///     ComparisonConstraint.greaterThan(value: 0, fieldExtractor: (p) => p.stock),
-///   ],
-/// );
-///
-/// // Find products that are either on sale OR have free shipping.
-/// final saleOrFreeShipping = CompoundConstraint.or(
-///   constraints: [
-///     ComparisonConstraint.equal(value: true, fieldExtractor: (p) => p.isOnSale),
-///     ComparisonConstraint.equal(value: true, fieldExtractor: (p) => p.hasFreeShipping),
-///   ],
-/// );
-///
-/// // Find products that are NOT "Electronics".
-/// final notElectronics = CompoundConstraint.not(
-///   constraint: ComparisonConstraint.equal(value: 'Electronics', fieldExtractor: (p) => p.category),
-/// );
-///
-/// // Find products that are NEITHER out of stock NOR discontinued.
-/// final availableProducts = CompoundConstraint.none(
-///   constraints: [
-///     ComparisonConstraint.equal(value: 0, fieldExtractor: (p) => p.stock),
-///     ComparisonConstraint.equal(value: true, fieldExtractor: (p) => p.isDiscontinued),
-///   ],
-/// );
-/// ```
+/// The evaluation behavior depends on the selected [CompoundOperator].
+/// The constraint list must contain at least one constraint.
 class CompoundConstraint<T> extends QueryConstraint<T> {
   final CompoundOperator _operator;
   final List<QueryConstraint<T>> _constraints;
 
-  /// Private constructor to enforce creation via factory constructors.
-  ///
-  /// For the [CompoundOperator.not] type, the [constraints] list must contain
-  /// exactly one element.
   CompoundConstraint._({
     required CompoundOperator operator,
     required List<QueryConstraint<T>> constraints,
   }) : _operator = operator,
-       _constraints = constraints;
-
-  /// Creates a [CompoundConstraint] that matches if at least one of the
-  /// provided [constraints] matches the model (Logical OR).
-  factory CompoundConstraint.or({
-    required List<QueryConstraint<T>> constraints,
-  }) {
-    if (constraints.isEmpty) {
-      throw ArgumentError(
-        "CompoundConstraint.or must have at least one constraint.",
-      );
-    }
-    return CompoundConstraint._(
-      constraints: constraints,
-      operator: CompoundOperator.or,
-    );
+       _constraints = List.unmodifiable(constraints) {
+    _validate();
   }
 
-  /// Creates a [CompoundConstraint] that matches if the provided [constraint]
-  /// DOES NOT match the model (Logical NOT).
-  ///
-  /// This factory takes a single [QueryConstraint] as input, ensuring clear
-  /// negation semantics.
-  factory CompoundConstraint.not({required QueryConstraint<T> constraint}) =>
-      CompoundConstraint._(
-        constraints: [constraint], // Wrap the single constraint in a list
-        operator: CompoundOperator.not,
+  void _validate() {
+    if (_constraints.isEmpty) {
+      throw ArgumentError(
+        "CompoundConstraint requires at least one constraint.",
       );
+    }
 
-  /// Creates a [CompoundConstraint] that matches if ALL of the provided
-  /// [constraints] match the model (Logical AND).
+    if (_operator == CompoundOperator.not && _constraints.length != 1) {
+      throw ArgumentError(
+        "CompoundConstraint.not requires exactly one constraint.",
+      );
+    }
+  }
+
+  /// Creates a constraint that matches when all provided [constraints] match.
   factory CompoundConstraint.and({
     required List<QueryConstraint<T>> constraints,
-  }) {
-    if (constraints.isEmpty) {
-      throw ArgumentError(
-        "CompoundConstraint.and must have at least one constraint.",
-      );
-    }
-    return CompoundConstraint._(
-      constraints: constraints,
-      operator: CompoundOperator.and,
-    );
-  }
+  }) => CompoundConstraint._(
+    operator: CompoundOperator.and,
+    constraints: constraints,
+  );
 
-  /// Creates a [CompoundConstraint] that matches if NONE of the provided
-  /// [constraints] match the model.
-  ///
-  /// This is logically equivalent to `NOT (Constraint1 OR Constraint2 OR ...)`.
-  factory CompoundConstraint.none({
+  /// Creates a constraint that matches when at least one of the provided
+  /// [constraints] matches.
+  factory CompoundConstraint.or({
     required List<QueryConstraint<T>> constraints,
-  }) {
-    if (constraints.isEmpty) {
-      throw ArgumentError(
-        "CompoundConstraint.none must have at least one constraint.",
-      );
-    }
-    return CompoundConstraint._(
-      constraints: constraints,
-      operator: CompoundOperator.none,
-    );
-  }
+  }) => CompoundConstraint._(
+    operator: CompoundOperator.or,
+    constraints: constraints,
+  );
 
-  /// Checks if the [model] matches the compound condition defined by this constraint.
+  /// Creates a constraint that matches when the provided [constraint]
+  /// does not match.
+  factory CompoundConstraint.not({required QueryConstraint<T> constraint}) =>
+      CompoundConstraint._(
+        operator: CompoundOperator.not,
+        constraints: [constraint],
+      );
+
+  /// Evaluates the constraint against the given [model].
   ///
-  /// The specific logical operation (AND, OR, NOT, NONE) is applied based on
-  /// the [_operator] and the evaluation of the [_constraints] list.
+  /// Returns `true` if the model satisfies the configured logical operator
+  /// and nested constraints.
   @override
   bool matches(T model) {
     switch (_operator) {
       case CompoundOperator.and:
-        return _constraints.every((constraint) => constraint.matches(model));
+        return _constraints.every((c) => c.matches(model));
 
       case CompoundOperator.or:
-        return _constraints.any((constraint) => constraint.matches(model));
+        return _constraints.any((c) => c.matches(model));
 
       case CompoundOperator.not:
-        // By design of the factory constructor, _constraints will always have one element here.
         return !_constraints.first.matches(model);
-
-      case CompoundOperator.none:
-        // 'none' means that 'any' of the constraints should NOT match.
-        // If 'any' matches, then 'none' fails. So, we return the negation of 'any'.
-        // return !_constraints.every((constraint) => constraint.matches(model)); // This was incorrect for 'none'
-        return !_constraints.any((constraint) => constraint.matches(model));
     }
   }
 }

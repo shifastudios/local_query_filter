@@ -1,30 +1,72 @@
-# Local Query Filter
+[![pub package](https://img.shields.io/pub/v/local_query_filter.svg)](https://pub.dartlang.org/packages/local_query_filter)
+[![Code size](https://img.shields.io/github/languages/code-size/shifastudios/local_query_filter)](https://github.com/shifastudios/local_query_filter)
+[![License](https://img.shields.io/github/license/shifastudios/local_query_filter)](https://github.com/shifastudios/local_query_filter/blob/master/LICENSE)
 
-A **high-performance**, **type-safe**, and **extensible** filtering engine for Flutter. Designed for
-**client-side** querying of in-memory collections with **search**, **sorting**, and **pagination**,
-all executed in a background isolate for **jank-free UI**.
+# local_query_filter
 
----
+A small, explicit query engine for **dynamic, client-side filtering** of in-memory data in Dart and Flutter.
 
-## 🔑 Key Features
+`local_query_filter` is designed for cases where query logic is **runtime-composed**, **user-driven**, and **reusable**, and where pushing filtering to a backend is either impossible or undesirable.
 
-* ⚡ **High Performance**: Filtering is executed in a background isolate via `compute`, preventing UI
-  jank.
-* 🧱 **Composable & Type-Safe**: Build expressive queries using strongly-typed constraints.
-* 🔍 **Full-Text Search**: Perform case-insensitive search across multiple fields.
-* 🔃 **Advanced Sorting**: Sort by any `Comparable` field in ascending or descending order.
-* 📄 **Pagination**: Supports `limit` and `offset` for effortless paginated lists.
-* 🧩 **Extensible by Design**: Create your own constraints by extending the `QueryConstraint` class.
+There is no reflection, no code generation, and no hidden schema.
+All behavior is explicit and type-safe.
 
 ---
 
-## 🛠 Getting Started
+## Why This Exists
+
+Simple `.where()` chains break down when:
+
+- filters are built dynamically (UI-driven search and filters)
+- query logic must be reused across screens or features
+- constraints need to be composed (`AND`, `OR`, `NOT`)
+- filtering, searching, sorting, and pagination must stay consistent
+
+This package separates **what a filter means** from **how it is applied**.
+
+---
+
+## Key Features
+
+- Strongly-typed, composable constraints
+- Logical composition (`and`, `or`, `not`)
+- Case-insensitive text search
+- Sorting by any `Comparable` field
+- Offset + limit pagination
+- Async-friendly execution for large lists
+- Fully extensible via custom constraints
+
+---
+
+## When to Use This
+
+Use `local_query_filter` when:
+
+- filters are constructed dynamically at runtime
+- query logic must be reusable and testable
+- data already lives in memory (cache, offline store, API results)
+- backend filtering is unavailable, expensive, or too rigid
+
+### When Not to Use This
+
+Do not use this library if:
+
+- filtering can be done entirely in a database
+- queries are static and trivial
+- performance depends on indexed, ranked, or streaming queries
+
+This is **not** a database or ORM replacement.
+There is no indexing, query planning, ranking, or persistence.
+
+---
+
+## Installation
 
 Add the dependency to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  local_query_filter: ^0.2.0 # Use the latest version
+  local_query_filter: ^latest
 ```
 
 Then run:
@@ -35,9 +77,42 @@ flutter pub get
 
 ---
 
-## ⚙️ Usage
+## Core Concepts
 
-### 1. Define a Data Model
+### QueryConstraint
+
+All filtering logic is expressed as a `QueryConstraint<T>`.
+
+```dart
+abstract class QueryConstraint<T> {
+  bool matches(T model);
+}
+```
+
+Each constraint answers a single question:
+
+> Does this model match?
+
+Constraints are composable and reusable.
+
+---
+
+### QueryFilter
+
+`QueryFilter` applies constraints, optional search, optional sorting, and pagination.
+
+Execution order:
+
+1. Constraints
+2. Search
+3. Sorting (if enabled)
+4. Pagination
+
+---
+
+## Basic Example
+
+### Model
 
 ```dart
 class Product {
@@ -47,7 +122,6 @@ class Product {
   final List<String> tags;
   final DateTime createdAt;
   final bool isActive;
-  final bool isOnSale;
 
   Product({
     required this.id,
@@ -56,104 +130,197 @@ class Product {
     required this.tags,
     required this.createdAt,
     required this.isActive,
-    required this.isOnSale,
   });
 }
 ```
 
 ---
 
-### 2. Create and Apply a Filter
+### Filter
 
 ```dart
-
 final now = DateTime.now();
 
-final productFilter = QueryFilter<Product>(
-  limit: 10,
-  offset: 0,
-  ascending: true,
-  searchTerm: 'speaker',
-  sortingFieldExtractor: (product) => product.price,
-  searchFieldsExtractor: (product) => [product.name],
+final filter = QueryFilter<Product>(
   constraints: [
-    // Must be active
     BooleanConstraint.isTrue(
-      fieldExtractor: (product) => product.isActive,
+      fieldExtractor: (p) => p.isActive,
     ),
-    // Price under ₹100
     ComparisonConstraint.lessThan(
       value: 100.0,
-      fieldExtractor: (product) => product.price,
+      fieldExtractor: (p) => p.price,
     ),
-    // Tag must include 'sale'
     ArrayUnionConstraint.arrayContains(
-      values: ['sale'],
-      fieldExtractor: (product) => product.tags,
+      value: 'sale',
+      fieldExtractor: (p) => p.tags,
     ),
-    // Created in the last 30 days
-    DateRangeConstraint(
-      dateRange: DateTimeRange(
-        start: now.subtract(const Duration(days: 30)),
-        end: now,
-      ),
-      fieldExtractor: (product) => product.createdAt,
+    DateRangeConstraint.forRange(
+      start: now.subtract(const Duration(days: 30)),
+      end: now,
+      fieldExtractor: (p) => p.createdAt,
     ),
   ],
+  searchTerm: 'speaker',
+  searchFieldsExtractor: (p) => [p.name],
+  sortingFieldExtractor: (p) => p.price,
+  ascending: true,
+  limit: 10,
+  offset: 0,
 );
 
-Future<void> runFilter() async {
-  List<Product> filtered = await productFilter.apply(allProducts);
-  for (final product in filtered) {
-    print(product.name);
-  }
-}
+final results = await filter.applyFilterAndSort(allProducts);
 ```
 
 ---
 
-## 🧪 API Overview
+## Dynamic Filters (The Real Use Case)
 
-### `QueryFilter<T>`
+This is where `local_query_filter` becomes valuable.
 
-| Property                | Description                                  |
-|-------------------------|----------------------------------------------|
-| `constraints`           | List of `QueryConstraint`s to apply.         |
-| `searchTerm`            | Case-insensitive search term.                |
-| `searchFieldsExtractor` | Extracts fields to apply the search term on. |
-| `sortingFieldExtractor` | Returns the field used for sorting.          |
-| `ascending`             | Determines sort order.                       |
-| `limit`                 | Max number of items to return.               |
-| `offset`                | Number of items to skip (for pagination).    |
+```dart
+final constraints = <QueryConstraint<Product>>[];
+
+if (onlyActive) {
+  constraints.add(
+    BooleanConstraint.isTrue(fieldExtractor: (p) => p.isActive),
+  );
+}
+
+if (maxPrice != null) {
+  constraints.add(
+    ComparisonConstraint.lessThan(
+      value: maxPrice!,
+      fieldExtractor: (p) => p.price,
+    ),
+  );
+}
+
+if (selectedTags.isNotEmpty) {
+  constraints.add(
+    ArrayUnionConstraint.arrayContainsAny(
+      values: selectedTags,
+      fieldExtractor: (p) => p.tags,
+    ),
+  );
+}
+
+final filter = QueryFilter<Product>(
+  constraints: constraints,
+  searchTerm: searchQuery,
+  searchFieldsExtractor: (p) => [p.name],
+  ascending: true,
+);
+```
+
+Constraints can be added, removed, or reused without rewriting query logic.
 
 ---
 
-### `QueryConstraint<T>`
+## Built-in Constraints
 
-All constraints extend this base class. You can mix and match them freely:
+### BooleanConstraint
 
-* ✅ **BooleanConstraint** – Match `true` or `false` values.
-* 🔢 **ComparisonConstraint** – Operators like `equal`, `greaterThan`, `lessThan`, etc.
-* 🔁 **RangeConstraint** – Check if a value lies within a numeric or comparable range.
-* 📅 **DateRangeConstraint** – Validate `DateTime` fields fall within a given range.
-* 🏷 **ArrayUnionConstraint** – For list fields. Supports:
-    * `arrayContains`
-    * `arrayContainsAny`
-    * `whereIn`
-    * `whereNotIn`
-* 🔗 **CompoundConstraint** – Combine multiple constraints using `AND`, `OR`, and `NOT`.
-* 🧠 **CustomConstraint** – Write any custom boolean function for filtering.
+Match boolean fields.
+
+- `isTrue`
+- `isFalse`
 
 ---
 
-## 📄 License
+### ComparisonConstraint
 
-MIT — see the [LICENSE](https://github.com/shifastudios/local_query_filter/blob/master/LICENSE).
+Compare scalar values.
+
+- `equal`
+- `notEqual`
+- `greaterThan`
+- `greaterThanOrEqual`
+- `lessThan`
+- `lessThanOrEqual`
 
 ---
 
-## 🤝 Contributing
+### RangeConstraint
 
-Have ideas, feedback, or improvements?  
-Open an [issue](https://github.com/shifastudios/local_query_filter/issues)
-or [pull request](https://github.com/shifastudios/local_query_filter/pulls).
+Inclusive min/max range checks.
+
+---
+
+### DateRangeConstraint
+
+Match `DateTime` values within a range.
+Optionally ignore the time component.
+
+---
+
+### ArrayUnionConstraint
+
+For iterable and scalar field membership checks.
+
+- `arrayContains`
+- `arrayContainsAny`
+- `whereIn`
+- `whereNotIn`
+
+---
+
+### CompoundConstraint
+
+Logical composition.
+
+- `and`
+- `or`
+- `not` (exactly one constraint)
+
+---
+
+### CustomConstraint
+
+Escape hatch for advanced logic.
+
+```dart
+CustomConstraint<Product>(
+customComparator: (p) => expensiveCheck(p),
+);
+```
+
+Use sparingly. Prefer explicit constraints for reuse.
+
+---
+
+## Performance Notes
+
+- Designed for in-memory collections
+- Yields to the event loop during large iterations
+- Early termination when sorting is disabled and `limit` is set
+- Sorting requires collecting all matches first
+
+---
+
+## Design Principles
+
+- Explicit over implicit
+- Composition over configuration
+- No reflection
+- No code generation
+- No hidden runtime behavior
+
+---
+
+## License MIT
+
+See [LICENSE](https://github.com/shifastudios/local_query_filter/blob/master/LICENSE)
+
+---
+
+## Contributing
+
+Issues and pull requests are welcome.
+
+High-value contributions include:
+
+- new reusable constraints
+- benchmarks and profiling
+- API ergonomics and documentation
+
+Open an [issue](https://github.com/shifastudios/local_query_filter/issues) or submit a [pull request](https://github.com/shifastudios/local_query_filter/pulls) on GitHub.

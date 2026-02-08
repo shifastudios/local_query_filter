@@ -1,33 +1,22 @@
 name: local_query_filter
-description: A type-safe, high-performance Flutter package for client-side filtering, sorting, searching, and pagination of in-memory collections — with isolate-based execution for zero UI jank.
-version: 0.2.0
+description: >
+  A type-safe, composable query engine for client-side filtering, searching,
+  sorting, and pagination of in-memory collections in Dart and Flutter.
+version: 1.0.0
 homepage: https://github.com/shifastudios/local_query_filter
 
 environment:
-  sdk: ^3.8.1
+  sdk: ^3.10.7
   flutter: ">=1.17.0"
-
-dependencies:
-  flutter:
-    sdk: flutter
-
-  dart_date: ^1.5.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
   flutter_lints: ^6.0.0
 
 topics:
-  - filtering
+  - filter
   - search
   - sort
   - pagination
   - query
-  - isolate
-  - type-safe
-  - in-memory
-  - collection
-  - dart
-  - client-side

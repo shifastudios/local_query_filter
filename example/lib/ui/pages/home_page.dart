@@ -71,10 +71,8 @@ class _HomePageState extends State<HomePage> {
     if (recentOnly) {
       constraints.add(
         DateRangeConstraint.forRange(
-          dateRange: DateTimeRange(
-            start: DateTime.now().subtract(const Duration(days: 30)),
-            end: DateTime.now(),
-          ),
+          end: DateTime.now(),
+          start: DateTime.now().subtract(const Duration(days: 30)),
           fieldExtractor: (p) => p.createdAt,
         ),
       );
